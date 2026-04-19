@@ -1,0 +1,108 @@
+Instrukcja: klucz SSH dla konta GitHub "MayCodeAI" (maycodeai26@gmail.com)
+================================================================
+
+Cel: utworzyć dedykowany klucz SSH dla konta MayCodeAI i używać go w tym
+repo, nie mieszając z innymi kluczami (np. prywatnym kontem pawel.maj).
+
+----------------------------------------------------------------
+1. Wygeneruj nowy klucz SSH
+----------------------------------------------------------------
+
+ssh-keygen -t ed25519 -C "maycodeai26@gmail.com" -f ~/.ssh/id_ed25519_maycodeai
+
+- `-C` to komentarz (widoczny w kluczu publicznym) — wpisz email konta.
+- `-f` to ścieżka pliku klucza — własna nazwa, żeby nie nadpisać
+  istniejącego `~/.ssh/id_ed25519`.
+- Passphrase: opcjonalne, ale zalecane.
+
+Powstaną dwa pliki:
+- `~/.ssh/id_ed25519_maycodeai`      (prywatny — NIE udostępniać)
+- `~/.ssh/id_ed25519_maycodeai.pub`  (publiczny — dodasz na GitHub)
+
+----------------------------------------------------------------
+2. Dodaj klucz do ssh-agenta (macOS Keychain)
+----------------------------------------------------------------
+
+eval "$(ssh-agent -s)"
+ssh-add --apple-use-keychain ~/.ssh/id_ed25519_maycodeai
+
+----------------------------------------------------------------
+3. Dodaj klucz publiczny na GitHubie (konto MayCodeAI)
+----------------------------------------------------------------
+
+Skopiuj zawartość klucza publicznego:
+
+    pbcopy < ~/.ssh/id_ed25519_maycodeai.pub
+
+Zaloguj się na konto MayCodeAI (maycodeai26@gmail.com) i dodaj:
+GitHub → Settings → SSH and GPG keys → New SSH key → wklej i zapisz.
+
+----------------------------------------------------------------
+4. Skonfiguruj alias hosta w ~/.ssh/config
+----------------------------------------------------------------
+
+Otwórz (lub utwórz) `~/.ssh/config` i dopisz:
+
+    Host github-maycodeai
+      HostName github.com
+      User git
+      IdentityFile ~/.ssh/id_ed25519_maycodeai
+      IdentitiesOnly yes
+
+- `Host github-maycodeai` — to alias, którego użyjesz zamiast `github.com`
+  w URL remote'a. Dzięki temu SSH wie, że dla tego hosta ma użyć
+  konkretnie tego klucza.
+- `IdentitiesOnly yes` — wymusza użycie tylko tego klucza, nawet jeśli
+  ssh-agent ma załadowane inne (ważne przy wielu kontach GitHub).
+
+Uprawnienia pliku config (jeśli dopiero co utworzony):
+
+    chmod 600 ~/.ssh/config
+
+----------------------------------------------------------------
+5. Przetestuj połączenie
+----------------------------------------------------------------
+
+    ssh -T git@github-maycodeai
+
+Oczekiwany wynik:
+    Hi MayCodeAI! You've successfully authenticated, ...
+
+----------------------------------------------------------------
+6. Ustaw remote w tym repo na alias
+----------------------------------------------------------------
+
+Jeśli repo ma już remote `origin` z github.com, zmień go na alias:
+
+    git remote set-url origin git@github-maycodeai:<org-or-user>/<repo>.git
+
+Jeśli dopiero dodajesz:
+
+    git remote add origin git@github-maycodeai:<org-or-user>/<repo>.git
+
+Sprawdź:
+
+    git remote -v
+
+Powinno pokazać `git@github-maycodeai:...` (nie `github.com`).
+
+----------------------------------------------------------------
+7. Ustaw user.name / user.email per-repo (opcjonalnie)
+----------------------------------------------------------------
+
+Żeby commity w tym repo były podpisywane tożsamością MayCodeAI,
+a nie globalną:
+
+    git config user.name  "May Code AI"
+    git config user.email "maycodeai26@gmail.com"
+
+----------------------------------------------------------------
+Uwagi
+----------------------------------------------------------------
+
+- Nigdy nie commituj klucza prywatnego ani pliku `~/.ssh/config`.
+- Jeśli masz kilka kont GitHub, ten sam klucz publiczny można dodać
+  tylko do JEDNEGO konta — dlatego generujemy osobny klucz dla
+  MayCodeAI.
+- Przy klonowaniu nowego repo tego konta używaj aliasu:
+      git clone git@github-maycodeai:<org-or-user>/<repo>.git
